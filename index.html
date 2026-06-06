@@ -4,61 +4,96 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Астро Архив — Астрономический архив Telegram</title>
+  <title>АСТРО АРХИВ — Космический архив Telegram</title>
   <meta name="description" content="Архив публикаций Telegram-канала 'Астро новости' — космос, планеты, туманности, галактики и космонавтика">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔭</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800;900&family=Barlow+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
 </head>
 
 <body>
 
-  <!-- ═══ Header ═══ -->
-  <header class="header">
-    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Меню">☰</button>
+  <!-- ═══ Navigation ═══ -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo" id="nav-logo">
+        <span class="nav-logo-mark">АСТРО</span>
+        <span class="nav-logo-sub">АРХИВ</span>
+      </a>
 
-    <div class="logo">
-      <span class="logo-icon">🔭</span>
-      <div>
-        <div class="logo-text">Астро Архив</div>
-        <div class="logo-sub">Telegram Archive</div>
+      <div class="nav-links">
+        <button class="nav-link active" data-view="grid" id="btn-grid">ЛЕНТА</button>
+        <button class="nav-link" data-view="tiktok" id="btn-tiktok">СЛУЧАЙНОЕ</button>
+      </div>
+
+      <div class="nav-search" id="nav-search">
+        <svg class="nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input type="text" class="nav-search-input" id="search-input"
+               placeholder="ПОИСК..." autocomplete="off">
+        <button class="nav-search-clear" id="search-clear" aria-label="Очистить">&times;</button>
+      </div>
+
+      <div class="nav-count" id="nav-count">
+        <span id="post-count-num">—</span>
+        <span class="nav-count-label">ПОСТОВ</span>
       </div>
     </div>
+  </nav>
 
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input type="text" class="search-input" id="search-input"
-             placeholder="Поиск по публикациям..." autocomplete="off">
-      <button class="search-clear" id="search-clear" aria-label="Очистить">✕</button>
+  <!-- ═══ Hero Section ═══ -->
+  <section class="hero" id="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <h1 class="hero-title">
+        <span class="hero-title-line">АСТРО</span>
+        <span class="hero-title-line hero-title-thin">АРХИВ</span>
+      </h1>
+      <p class="hero-subtitle">Архив публикаций Telegram-канала об астрономии и космосе</p>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat-num" id="hero-stat-posts">—</span>
+          <span class="hero-stat-label">ПУБЛИКАЦИЙ</span>
+        </div>
+        <div class="hero-stat-divider"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-num" id="hero-stat-authors">—</span>
+          <span class="hero-stat-label">АВТОРОВ</span>
+        </div>
+        <div class="hero-stat-divider"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-num" id="hero-stat-images">—</span>
+          <span class="hero-stat-label">ИЗОБРАЖЕНИЙ</span>
+        </div>
+      </div>
+      <div class="hero-scroll-hint" id="hero-scroll-hint">
+        <span>ПРОКРУТИТЕ ВНИЗ</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12l7 7 7-7"/>
+        </svg>
+      </div>
     </div>
+  </section>
 
-    <div class="nav-tabs">
-      <button class="nav-tab active" data-view="grid">
-        <span class="nav-tab-icon">▦</span>
-        <span>Лента</span>
-      </button>
-      <button class="nav-tab" data-view="tiktok">
-        <span class="nav-tab-icon">▶</span>
-        <span>Случайное</span>
-      </button>
+  <!-- ═══ Filter Bar ═══ -->
+  <section class="filter-bar" id="filter-bar">
+    <div class="filter-bar-inner">
+      <button class="filter-pill active" data-filter="all" id="filter-all">ВСЕ</button>
+      <div class="filter-pills" id="filter-pills"></div>
     </div>
-
-    <div class="post-count">
-      📝 <span id="post-count-num">—</span>
-    </div>
-  </header>
-
-  <!-- ═══ Sidebar (Topics) ═══ -->
-  <aside class="sidebar">
-    <div class="sidebar-title">Темы</div>
-    <button class="sidebar-clear" id="sidebar-clear">✕ Сбросить фильтр</button>
-    <div id="topic-list"></div>
-  </aside>
+  </section>
 
   <!-- ═══ Main Content (Grid view) ═══ -->
-  <main class="main">
-    <div class="loading">
-      <div class="spinner"></div>
-      <div class="loading-text">Загрузка архива...</div>
+  <main class="main" id="main-content">
+    <div class="loading" id="loading">
+      <div class="loading-ring">
+        <div></div><div></div><div></div><div></div>
+      </div>
+      <div class="loading-text">ЗАГРУЗКА ДАННЫХ</div>
     </div>
     <div class="posts-grid" id="posts-grid"></div>
   </main>
@@ -67,24 +102,36 @@
   <div class="tiktok-feed" id="tiktok-feed"></div>
 
   <div class="tiktok-nav-hint" id="tiktok-nav-hint" style="display:none">
-    <button class="tiktok-nav-btn" id="tiktok-up" aria-label="Вверх">↑</button>
-    <button class="tiktok-nav-btn" id="tiktok-down" aria-label="Вниз">↓</button>
+    <button class="tiktok-nav-btn" id="tiktok-up" aria-label="Вверх">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+    </button>
+    <button class="tiktok-nav-btn" id="tiktok-down" aria-label="Вниз">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
   </div>
 
   <div class="tiktok-counter" id="tiktok-counter" style="display:none"></div>
 
   <!-- ═══ Post Detail Modal ═══ -->
   <div class="post-modal-overlay" id="post-modal">
-    <button class="post-modal-close" id="post-modal-close" aria-label="Закрыть">✕</button>
+    <button class="post-modal-close" id="post-modal-close" aria-label="Закрыть">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
     <div class="post-modal" id="post-modal-content"></div>
   </div>
 
   <!-- ═══ Lightbox ═══ -->
   <div class="lightbox" id="lightbox">
-    <button class="lightbox-close" aria-label="Закрыть">✕</button>
-    <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Предыдущее">‹</button>
+    <button class="lightbox-close" aria-label="Закрыть">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Предыдущее">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
     <img id="lightbox-img" src="" alt="">
-    <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Следующее">›</button>
+    <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Следующее">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
   </div>
 
   <script src="js/app.js"></script>

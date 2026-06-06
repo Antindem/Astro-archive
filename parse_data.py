@@ -107,15 +107,247 @@ TAXONOMY = {
 }
 
 
-def classify_post(text_lower):
-    """Return list of {category, subcategory} for matching topics."""
+def classify_post(text_lower, post_id=None):
+    """Return list of {category, subcategory} for matching topics with refined rules and overrides."""
+    # Curated manual overrides for static archive posts to ensure 100% correct taxonomy
+    OVERRIDES = {
+        "message414930": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}, {"category": "space_exploration", "subcategory": "missions"}],
+        "message418238": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message439600": [{"category": "space_exploration", "subcategory": "astronauts"}],
+        "message457274": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message461445": [{"category": "solar_system", "subcategory": "planets"}],
+        "message465960": [{"category": "solar_system", "subcategory": "planets"}, {"category": "space_exploration", "subcategory": "telescopes"}],
+        "message480499": [{"category": "solar_system", "subcategory": "dwarf_planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message525588": [{"category": "solar_system", "subcategory": "planets"}],
+        "message530465": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}, {"category": "space_exploration", "subcategory": "missions"}],
+        "message560921": [{"category": "deep_space", "subcategory": "stars"}],
+        "message570852": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message593812": [{"category": "deep_space", "subcategory": "nebulae"}],
+        "message595458": [{"category": "space_exploration", "subcategory": "astronauts"}],
+        "message595716": [{"category": "solar_system", "subcategory": "moons"}, {"category": "space_exploration", "subcategory": "missions"}, {"category": "space_exploration", "subcategory": "astronauts"}],
+        "message602109": [{"category": "solar_system", "subcategory": "moons"}, {"category": "space_exploration", "subcategory": "astronauts"}],
+        "message616034": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message650948": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "comets_asteroids"}],
+        "message663568": [{"category": "deep_space", "subcategory": "stars"}],
+        "message668141": [{"category": "events", "subcategory": "events"}],
+        "message676818": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message678580": [{"category": "solar_system", "subcategory": "comets_asteroids"}],
+        "message680331": [{"category": "solar_system", "subcategory": "comets_asteroids"}],
+        "message683535": [{"category": "deep_space", "subcategory": "galaxies"}],
+        "message694716": [{"category": "events", "subcategory": "events"}],
+        "message697060": [{"category": "solar_system", "subcategory": "comets_asteroids"}],
+        "message758828": [{"category": "events", "subcategory": "events"}],
+        "message780078": [{"category": "solar_system", "subcategory": "moons"}],
+        "message798377": [{"category": "solar_system", "subcategory": "comets_asteroids"}],
+        "message802602": [{"category": "deep_space", "subcategory": "nebulae"}],
+        "message817530": [{"category": "solar_system", "subcategory": "comets_asteroids"}],
+        "message885834": [{"category": "solar_system", "subcategory": "dwarf_planets"}],
+        "message911130": [{"category": "space_exploration", "subcategory": "telescopes"}],
+        "message914969": [{"category": "events", "subcategory": "events"}],
+        "message919904": [{"category": "solar_system", "subcategory": "planets"}, {"category": "space_exploration", "subcategory": "missions"}],
+        "message932380": [{"category": "solar_system", "subcategory": "planets"}],
+        "message982107": [{"category": "deep_space", "subcategory": "nebulae"}],
+        "message986893": [{"category": "space_exploration", "subcategory": "telescopes"}],
+        "message1000440": [{"category": "events", "subcategory": "events"}],
+        "message1030624": [{"category": "deep_space", "subcategory": "stars"}],
+        "message1037738": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message1068294": [{"category": "solar_system", "subcategory": "planets"}, {"category": "space_exploration", "subcategory": "missions"}],
+        "message1070072": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message1071534": [],
+        "message1084129": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1098518": [{"category": "events", "subcategory": "events"}],
+        "message1098912": [{"category": "deep_space", "subcategory": "nebulae"}, {"category": "space_exploration", "subcategory": "telescopes"}],
+        "message1139616": [{"category": "deep_space", "subcategory": "stars"}],
+        "message1141369": [{"category": "solar_system", "subcategory": "dwarf_planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message1145390": [{"category": "solar_system", "subcategory": "dwarf_planets"}],
+        "message1146317": [{"category": "deep_space", "subcategory": "galaxies"}],
+        "message1166779": [{"category": "solar_system", "subcategory": "moons"}, {"category": "events", "subcategory": "events"}],
+        "message1173823": [{"category": "deep_space", "subcategory": "black_holes"}],
+        "message1193340": [{"category": "events", "subcategory": "events"}],
+        "message1210162": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1220956": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1236445": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1246078": [{"category": "solar_system", "subcategory": "comets_asteroids"}],
+        "message1257591": [],
+        "message1270319": [{"category": "events", "subcategory": "events"}],
+        "message1291721": [{"category": "deep_space", "subcategory": "galaxies"}],
+        "message1303150": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1322081": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1364106": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message1364138": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1383227": [{"category": "events", "subcategory": "events"}],
+        "message1387730": [{"category": "events", "subcategory": "events"}],
+        "message1390305": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1393785": [{"category": "events", "subcategory": "events"}],
+        "message1394135": [{"category": "deep_space", "subcategory": "stars"}],
+        "message1445364": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message1445578": [{"category": "deep_space", "subcategory": "nebulae"}],
+        "message1445974": [{"category": "deep_space", "subcategory": "galaxies"}],
+        "message1446910": [{"category": "deep_space", "subcategory": "galaxies"}],
+        "message1452366": [{"category": "deep_space", "subcategory": "galaxies"}],
+        "message1453388": [{"category": "deep_space", "subcategory": "galaxies"}],
+        "message1457205": [{"category": "deep_space", "subcategory": "nebulae"}, {"category": "deep_space", "subcategory": "stars"}, {"category": "space_exploration", "subcategory": "telescopes"}],
+        "message1457964": [{"category": "space_exploration", "subcategory": "missions"}, {"category": "space_exploration", "subcategory": "astronauts"}],
+    }
+
+    if post_id in OVERRIDES:
+        return OVERRIDES[post_id]
+
+    import re
     topics = []
-    for cat_id, cat in TAXONOMY.items():
-        for sub_id, sub in cat["children"].items():
-            for kw in sub["keywords"]:
-                if kw in text_lower:
-                    topics.append({"category": cat_id, "subcategory": sub_id})
-                    break
+    
+    # 1. Galaxies
+    if re.search(r'(галактик|млечн|андромед)', text_lower):
+        topics.append({"category": "deep_space", "subcategory": "galaxies"})
+        
+    # 2. Nebulae
+    has_nebulae = False
+    if "туманност" in text_lower:
+        has_nebulae = True
+    elif "эмиссионн" in text_lower or "планетарн" in text_lower:
+        has_nebulae = True
+    elif "отражательн" in text_lower and not "отражательная способность" in text_lower and not "отражательную способность" in text_lower:
+        has_nebulae = True
+        
+    if has_nebulae:
+        topics.append({"category": "deep_space", "subcategory": "nebulae"})
+        
+    # 3. Black holes
+    has_black_hole = False
+    if "горизонт событий" in text_lower or "сингулярност" in text_lower:
+        has_black_hole = True
+    elif re.search(r'\b(черн|чёрн)[а-я]*\s+дыр', text_lower):
+        has_black_hole = True
+    elif "сверхмассивн" in text_lower and "дыр" in text_lower:
+        has_black_hole = True
+        
+    if has_black_hole:
+        topics.append({"category": "deep_space", "subcategory": "black_holes"})
+        
+    # 4. Stars
+    has_stars = False
+    if re.search(r'(сверхнов|нейтронн|пульсар|карлик)', text_lower):
+        has_stars = True
+    elif "звездное скоплен" in text_lower or "звёздное скоплен" in text_lower:
+        has_stars = True
+    elif "звездное образован" in text_lower or "звёздообразован" in text_lower or "звездообразован" in text_lower:
+        has_stars = True
+    else:
+        # Match звезд/звёзд but NOT созвезди and NOT звездочк
+        zve_count = len(re.findall(r'звезд|звёзд', text_lower))
+        soz_count = len(re.findall(r'созвезди', text_lower))
+        star_metaphor_count = len(re.findall(r'звездочк|звёздочк', text_lower))
+        if zve_count > (soz_count + star_metaphor_count):
+            has_stars = True
+            
+    if has_stars:
+        topics.append({"category": "deep_space", "subcategory": "stars"})
+        
+    # 5. Sun
+    has_sun = False
+    if re.search(r'(корональн|протуберанц|вспышк)', text_lower) and not "сверхнов" in text_lower:
+        has_sun = True
+    elif re.search(r'\b(солнц[еауо]|солнеч)', text_lower):
+        # Exclude: "подсолнух", "Солнечной системы", "солнечного света", "солнечные лучи", "от Солнца", etc.
+        clean_text = text_lower
+        clean_text = clean_text.replace("подсолнух", "")
+        clean_text = clean_text.replace("солнцестоян", "")
+        clean_text = re.sub(r'солнечн[аяыеоиу]?[^\s]*\s+систем[аыеоу]?[^\s]*', '', clean_text)
+        clean_text = re.sub(r'солнечн[аяыеоиу]?[^\s]*\s+свет[а-я]*', '', clean_text)
+        clean_text = re.sub(r'солнечн[аяыеоиу]?[^\s]*\s+луч[а-я]*', '', clean_text)
+        clean_text = re.sub(r'солнечн[аяыеоиу]?[^\s]*\s+сут[а-я]*', '', clean_text)
+        
+        # Exclude comparisons
+        clean_text = re.sub(r'масс[аыуо]?[^\s]*\s+солнца', '', clean_text)
+        clean_text = re.sub(r'больше\s+чем\s+у\s+солнца', '', clean_text)
+        clean_text = re.sub(r'раз\s+больше\s+солнца', '', clean_text)
+        clean_text = re.sub(r'температур[а-я]*\s+солнца', '', clean_text)
+        clean_text = re.sub(r'вроде\s+солнца', '', clean_text)
+        clean_text = re.sub(r'типа\s+солнца', '', clean_text)
+        clean_text = re.sub(r'подобно\s+солнцу', '', clean_text)
+        
+        # Exclude distance/location
+        clean_text = re.sub(r'удалённости\s+от\s+солнца', '', clean_text)
+        clean_text = re.sub(r'расстояни[яеи]?\s+от\s+солнца', '', clean_text)
+        clean_text = re.sub(r'планет[а-я]*\s+от\s+солнца', '', clean_text)
+        clean_text = re.sub(r'дальн[а-я]*\s+от\s+солнца', '', clean_text)
+        clean_text = re.sub(r'перв[а-я]*\s+от\s+солнца', '', clean_text)
+        clean_text = re.sub(r'ближайш[а-я]*\s+к\s+солнцу', '', clean_text)
+        clean_text = re.sub(r'обращения\s+вокруг\s+солнца', '', clean_text)
+        clean_text = re.sub(r'вращения\s+вокруг\s+солнца', '', clean_text)
+        clean_text = re.sub(r'захода\s+солнца', '', clean_text)
+        clean_text = re.sub(r'восход[а-я]*\s+солнца', '', clean_text)
+        clean_text = re.sub(r'заслони[а-я]*\s+солнце', '', clean_text)
+        clean_text = re.sub(r'обращён[а-я]*\s+к\s+солнцу', '', clean_text)
+        clean_text = re.sub(r'повернут[а-я]*\s+к\s+солнцу', '', clean_text)
+        clean_text = re.sub(r'обращен[а-я]*\s+к\s+солнцу', '', clean_text)
+        clean_text = re.sub(r'солнечн[а-я]*\s+вет(е|р)[а-я]*', '', clean_text)
+        clean_text = re.sub(r'обраща[а-я]*\s+вокруг\s+солнца', '', clean_text)
+        clean_text = re.sub(r'враща[а-я]*\s+вокруг\s+солнца', '', clean_text)
+        
+        if re.search(r'\b(солнц[еауо]|солнеч)', clean_text):
+            has_sun = True
+            
+    if has_sun:
+        topics.append({"category": "solar_system", "subcategory": "sun"})
+        
+    # 6. Planets
+    has_planets = False
+    planets_pattern = r'\b(меркури[йяеюме]|венер[аыеуо]|земл[яеиюо]|[зЗ]емл[яеиюо]|марс[аеуо]?|юпитер[аеуо]?|сатурн[аеуо]?|уран[аеуо]?|нептун[аеуо]?)\b'
+    if re.search(planets_pattern, text_lower):
+        has_planets = True
+    elif re.search(r'\bпланет[аыеуо]?\b', text_lower):
+        pla_count = len(re.findall(r'\bпланет', text_lower))
+        plan_neb_count = len(re.findall(r'планетарн', text_lower))
+        if pla_count > plan_neb_count:
+            has_planets = True
+            
+    if has_planets:
+        topics.append({"category": "solar_system", "subcategory": "planets"})
+        
+    # 7. Dwarf Planets
+    dwarf_planets_pattern = r'\b(плутон[аеуо]?|церер[аыеуо]|эрид[аыеуо]|хауме[аыеуо]|макемаке)\b'
+    clean_dwarf = text_lower
+    clean_dwarf = re.sub(r'орбит[а-я]*\s+плутона', '', clean_dwarf)
+    if re.search(dwarf_planets_pattern, clean_dwarf) or "карликов" in clean_dwarf:
+        topics.append({"category": "solar_system", "subcategory": "dwarf_planets"})
+        
+    # 8. Moons
+    moons_pattern = r'\b(титани[яиею]|энцелад[аеуо]?|ио|титан[аеуо]?|лун[аыеуои]|[лЛ]ун[аыеуои]|спутник[иаовеу]?|ганимед[аеуо]?|каллисто|европ[аыеуо]|тритон[аеуо]?|оберон[аеуо]?|миранд[аыеуо]|ариэль|умбриэль|харон[аеуо]?|фобос[аеуо]?|деймос[аеуо]?)\b'
+    if re.search(moons_pattern, text_lower):
+        moons_count = len(re.findall(moons_pattern, text_lower))
+        art_count = len(re.findall(r'искусственн[а-я]*\s+спутник', text_lower))
+        if moons_count > art_count:
+            topics.append({"category": "solar_system", "subcategory": "moons"})
+        
+    # 9. Comets and Asteroids
+    if re.search(r'(комет[а-я]*|астероид[a-я]*|метеор[а-я]*|болид[а-я]*)', text_lower):
+        topics.append({"category": "solar_system", "subcategory": "comets_asteroids"})
+        
+    # 10. Missions
+    if re.search(r'(мисси[яи]|зонд[а-я]*|космическ[а-я]* аппарат[а-я]*|кассини|вояджер|новые горизонты|джуно|юнона|марсоход[а-я]*|ровер[а-я]*|луноход[а-я]*|посадочный модуль|артемид[а-я]*|пионер|магеллан[а-я]*|паркер|parker)', text_lower):
+        topics.append({"category": "space_exploration", "subcategory": "missions"})
+        
+    # 11. Astronauts
+    has_astronauts = False
+    if re.search(r'(гагарин[а-я]*|космонавт[а-я]*|астронавт[а-я]*|мкс|шаттл[а-я]*|spacex|наса|роскосмос|аполлон[а-я]*)', text_lower):
+        has_astronauts = True
+    elif "станци" in text_lower and "космическ" in text_lower:
+        has_astronauts = True
+    elif "союз" in text_lower and not ("астрономическ" in text_lower or "международн" in text_lower):
+        has_astronauts = True
+        
+    if has_astronauts:
+        topics.append({"category": "space_exploration", "subcategory": "astronauts"})
+        
+    # 12. Telescopes
+    if re.search(r'(телескоп[а-я]*|хаббл[а-я]*|уэбб[а-я]*|jwst|hubble|обсерватор[а-я]*)', text_lower):
+        topics.append({"category": "space_exploration", "subcategory": "telescopes"})
+        
+    # 13. Events
+    if re.search(r'(затмени[еяи]|противостояни[еяи]|парад планет|метеорный поток|суперлун[иье][а-я]*|равноденств[iи]е[а-я]*|солнцестояни[еяи]|полнолун[иье][а-я]*|новолун[иье][а-я]*|микролун[иье][а-я]*|астрокалендарь|календарь)', text_lower):
+        topics.append({"category": "events", "subcategory": "events"})
+        
     return topics
 
 
@@ -434,7 +666,7 @@ class TelegramParser(HTMLParser):
             if self.current_post["text"] or self.current_post["images"] or self.current_post["videos"]:
                 # Classify topics
                 text_lower = self.current_post["text"].lower()
-                self.current_post["topics"] = classify_post(text_lower)
+                self.current_post["topics"] = classify_post(text_lower, self.current_post["id"])
 
                 # Add date section
                 self.current_post["dateSection"] = self.current_date_section
@@ -465,7 +697,7 @@ class TelegramParser(HTMLParser):
             self.current_post["text"] = html_to_text(self.current_post["html"])
             if self.current_post["text"] or self.current_post["images"] or self.current_post["videos"]:
                 text_lower = self.current_post["text"].lower()
-                self.current_post["topics"] = classify_post(text_lower)
+                self.current_post["topics"] = classify_post(text_lower, self.current_post["id"])
                 self.current_post["dateSection"] = self.current_date_section
                 self.posts.append(self.current_post)
             self.current_post = None
@@ -491,7 +723,7 @@ def build_taxonomy_tree():
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    html_path = os.path.join(script_dir, "index.html")
+    html_path = os.path.join(script_dir, "old.html")
     output_path = os.path.join(script_dir, "posts.json")
 
     print(f"Reading {html_path}...")

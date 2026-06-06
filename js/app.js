@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════
-   ASTRO ARCHIVE — Application Logic
+   ASTRO ARCHIVE — Application Logic (SpaceX Edition)
    ════════════════════════════════════════════════════════ */
 
 (function() {
@@ -20,6 +20,53 @@
   const $ = (sel, ctx) => (ctx || document).querySelector(sel);
   const $$ = (sel, ctx) => [...(ctx || document).querySelectorAll(sel)];
 
+  // ── Stemming & Search Helpers ──────────────────────────
+  function getStem(word) {
+    word = word.toLowerCase().replace(/ё/g, 'е').replace(/[^а-яa-z0-9]/g, '');
+    if (word.length <= 3) return word;
+
+    // English stemming (simple)
+    if (/^[a-z]+$/.test(word)) {
+      if (word.endsWith('es')) return word.slice(0, -2);
+      if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+      if (word.endsWith('ing')) return word.slice(0, -3);
+      if (word.endsWith('ed')) return word.slice(0, -2);
+      return word;
+    }
+
+    // Russian stemming (simple rule-based)
+    const endings = /(ами|ями|иями|ому|ему|уми|ыми|ими|ого|его|ой|ей|ий|ый|ая|яя|ое|ее|ые|ие|ых|их|ов|ев|ех|ах|ях|ом|ем|ам|ям|а|я|о|е|ы|и|у|ю|ь|ей)$/;
+    let prev;
+    let stemmed = word;
+    do {
+      prev = stemmed;
+      if (stemmed.length > 3) {
+        stemmed = stemmed.replace(endings, '');
+      }
+    } while (stemmed !== prev && stemmed.length > 3);
+
+    return stemmed;
+  }
+
+  function matchSearch(post, query) {
+    if (!query) return true;
+    const queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (queryWords.length === 0) return true;
+
+    const author = (post.author || '').toLowerCase();
+    const text = (post.text || '').toLowerCase().replace(/ё/g, 'е');
+    const textWords = (text + ' ' + author).split(/[^а-яa-z0-9]+/);
+    const textStems = new Set(textWords.map(getStem).filter(Boolean));
+
+    const queryStems = queryWords.map(getStem);
+
+    return queryStems.every((qStem, idx) => {
+      if (textStems.has(qStem)) return true;
+      const qWord = queryWords[idx];
+      return textWords.some(tWord => tWord.startsWith(qWord));
+    });
+  }
+
   // ── Init ─────────────────────────────────────────────
   async function init() {
     try {
@@ -31,33 +78,70 @@
       // Sort posts newest first
       allPosts.sort((a, b) => (b.dateISO || '').localeCompare(a.dateISO || ''));
 
-      renderSidebar();
+      renderFilterPills();
+      updateHeroStats();
       applyFilters();
       bindEvents();
       hideLoading();
     } catch (err) {
       console.error('Failed to load data', err);
-      $('#main-content').innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">⚠️</div>
-          <div class="empty-title">Ошибка загрузки</div>
-          <div class="empty-desc">Не удалось загрузить данные. Убедитесь что posts.json существует.</div>
-        </div>
-      `;
+      const main = $('#main-content');
+      if (main) {
+        main.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">⚠️</div>
+            <div class="empty-title">ОШИБКА ЗАГРУЗКИ</div>
+            <div class="empty-desc">Не удалось загрузить данные. Убедитесь что posts.json существует.</div>
+          </div>
+        `;
+      }
     }
   }
 
   function hideLoading() {
-    const l = $('.loading');
+    const l = $('#loading');
     if (l) l.remove();
   }
 
-  // ── Sidebar ──────────────────────────────────────────
-  function renderSidebar() {
-    const container = $('#topic-list');
+  // ── Hero Stats ──────────────────────────────────────
+  function updateHeroStats() {
+    const postCount = allPosts.length;
+    const authors = new Set(allPosts.map(p => p.author)).size;
+    const images = allPosts.reduce((sum, p) => sum + (p.images ? p.images.length : 0), 0);
+
+    animateCounter('hero-stat-posts', postCount);
+    animateCounter('hero-stat-authors', authors);
+    animateCounter('hero-stat-images', images);
+  }
+
+  function animateCounter(id, target) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    
+    const duration = 1500;
+    const startTime = performance.now();
+    
+    function update(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      
+      el.textContent = Math.round(eased * target);
+      
+      if (progress < 1) {
+        requestAnimationFrame(update);
+      }
+    }
+    
+    requestAnimationFrame(update);
+  }
+
+  // ── Filter Pills ──────────────────────────────────
+  function renderFilterPills() {
+    const container = $('#filter-pills');
     if (!container) return;
 
-    // Count posts per topic
+    // Count posts per category/subcategory
     const counts = {};
     allPosts.forEach(p => {
       (p.topics || []).forEach(t => {
@@ -73,24 +157,16 @@
       const catCount = counts[cat.id] || 0;
       if (catCount === 0) return;
 
-      html += `<div class="topic-category" data-cat="${cat.id}">
-        <div class="topic-category-header" data-cat="${cat.id}">
-          <span>${cat.label}</span>
-          <span class="topic-count">${catCount}</span>
-          <span class="topic-chevron">›</span>
-        </div>
-        <div class="topic-children">`;
+      // Add category pill
+      const label = cat.label.replace(/^[^\s]+\s/, ''); // Remove emoji prefix
+      html += `<button class="filter-pill" data-cat="${cat.id}">${label}</button>`;
 
+      // Add subcategory pills
       cat.children.forEach(sub => {
         const subCount = counts[`${cat.id}/${sub.id}`] || 0;
         if (subCount === 0) return;
-        html += `<div class="topic-item" data-cat="${cat.id}" data-sub="${sub.id}">
-          <span>${sub.label}</span>
-          <span class="topic-count">${subCount}</span>
-        </div>`;
+        html += `<button class="filter-pill" data-cat="${cat.id}" data-sub="${sub.id}">${sub.label}</button>`;
       });
-
-      html += `</div></div>`;
     });
 
     container.innerHTML = html;
@@ -112,13 +188,9 @@
       );
     }
 
-    // Search
+    // Search using smart stemming
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      posts = posts.filter(p =>
-        (p.text || '').toLowerCase().includes(q) ||
-        (p.author || '').toLowerCase().includes(q)
-      );
+      posts = posts.filter(p => matchSearch(p, searchQuery));
     }
 
     filteredPosts = posts;
@@ -173,8 +245,8 @@
     if (filteredPosts.length === 0) {
       container.innerHTML = `
         <div class="empty-state" style="grid-column: 1/-1">
-          <div class="empty-icon">🔭</div>
-          <div class="empty-title">Ничего не найдено</div>
+          <div class="empty-icon">—</div>
+          <div class="empty-title">НИЧЕГО НЕ НАЙДЕНО</div>
           <div class="empty-desc">Попробуйте изменить поисковый запрос или снять фильтр</div>
         </div>
       `;
@@ -187,7 +259,6 @@
       const card = document.createElement('div');
       card.className = 'post-card';
       card.dataset.postIndex = allPosts.indexOf(post);
-      card.style.animationDelay = `${Math.min(i * 0.04, 0.8)}s`;
 
       const numImages = post.images ? post.images.length : 0;
       const numVideos = post.videos ? post.videos.length : 0;
@@ -210,9 +281,9 @@
         imageHtml = `
           <div class="${isVideo ? 'card-video-wrap' : 'card-image-wrap'}">
             <img src="${thumbUrl}" alt="" loading="lazy">
-            ${isVideo ? `<div class="video-play-badge">▶</div>` : ''}
+            ${isVideo ? `<div class="video-play-badge"></div>` : ''}
             ${isVideo && duration ? `<div class="video-duration-badge">${duration}</div>` : ''}
-            ${totalMedia > 1 ? `<span class="image-count-badge">📷 ${totalMedia}</span>` : ''}
+            ${totalMedia > 1 ? `<span class="image-count-badge">${totalMedia} ФОТО</span>` : ''}
           </div>`;
       }
 
@@ -242,6 +313,36 @@
 
     container.innerHTML = '';
     container.appendChild(fragment);
+
+    // Set up IntersectionObserver for scroll-reveal
+    setupScrollReveal();
+  }
+
+  // ── Scroll Reveal (IntersectionObserver) ─────────────
+  function setupScrollReveal() {
+    const cards = $$('.post-card');
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          // Stagger the animation slightly
+          const delay = Math.min(Array.from(entry.target.parentElement.children)
+            .filter(c => !c.classList.contains('visible'))
+            .indexOf(entry.target) * 80, 400);
+          
+          setTimeout(() => {
+            entry.target.classList.add('visible');
+          }, Math.max(delay, 0));
+          
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.05,
+      rootMargin: '0px 0px -40px 0px'
+    });
+
+    cards.forEach(card => observer.observe(card));
   }
 
   // ── TikTok Feed ──────────────────────────────────────
@@ -256,8 +357,8 @@
       container.innerHTML = `
         <div class="tiktok-slide">
           <div class="empty-state">
-            <div class="empty-icon">🔭</div>
-            <div class="empty-title">Нет публикаций</div>
+            <div class="empty-icon">—</div>
+            <div class="empty-title">НЕТ ПУБЛИКАЦИЙ</div>
             <div class="empty-desc">Снимите фильтр или измените поисковый запрос</div>
           </div>
         </div>`;
@@ -273,11 +374,9 @@
       let imageHtml = '';
       if (totalMedia > 0) {
         if (numVideos > 0) {
-          // Embed the video directly in tiktok feed
-          // If there are multiple we just show the first one
           const v = post.videos[0];
           imageHtml = `
-            <div class="tiktok-video-wrap" style="background:#000;">
+            <div class="tiktok-video-wrap">
               <video src="${v.src}" poster="${v.thumb}" controls ${v.type === 'gif' ? 'loop muted autoplay' : ''} style="width:100%; max-height: 400px; object-fit: contain;"></video>
             </div>`;
         } else {
@@ -285,7 +384,7 @@
           imageHtml = `
             <div class="tiktok-image-wrap" data-post-index="${allPosts.indexOf(post)}" data-img-index="0">
               <img src="${full}" alt="" loading="lazy">
-              ${totalMedia > 1 ? `<span class="image-count-badge">📷 ${totalMedia}</span>` : ''}
+              ${totalMedia > 1 ? `<span class="image-count-badge">${totalMedia} ФОТО</span>` : ''}
             </div>`;
         }
       }
@@ -388,7 +487,7 @@
     const modal = $('#post-modal');
     if (modal) {
       modal.classList.remove('active');
-      $('#post-modal-content').innerHTML = ''; // Clear contents to stop videos playing
+      $('#post-modal-content').innerHTML = '';
       document.body.style.overflow = '';
     }
   }
@@ -405,17 +504,14 @@
     const img = $('#lightbox-img');
     img.src = lightboxImages[lightboxIndex];
     lb.classList.add('active');
-    // Ensure body overflow hidden remains
     document.body.style.overflow = 'hidden';
 
-    // Show/hide nav buttons
     updateLightboxNav();
   }
 
   function closeLightbox() {
     const lb = $('#lightbox');
     lb.classList.remove('active');
-    // Restore overflow ONLY if modal is not open
     if (!$('#post-modal').classList.contains('active')) {
       document.body.style.overflow = '';
     }
@@ -448,32 +544,35 @@
   function switchView(view) {
     currentView = view;
 
-    // Update tabs
-    $$('.nav-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.view === view);
+    // Update nav links
+    $$('.nav-link').forEach(link => {
+      link.classList.toggle('active', link.dataset.view === view);
     });
 
     // Toggle views
     const grid = $('#posts-grid');
-    const main = $('.main');
+    const main = $('#main-content');
+    const hero = $('#hero');
+    const filterBar = $('#filter-bar');
     const tiktok = $('#tiktok-feed');
-    const sidebar = $('.sidebar');
     const counter = $('#tiktok-counter');
     const navHint = $('#tiktok-nav-hint');
 
     if (view === 'grid') {
       if (grid) grid.style.display = '';
-      if (main) { main.style.display = ''; main.classList.remove('full-width'); }
+      if (main) main.style.display = '';
+      if (hero) hero.style.display = '';
+      if (filterBar) filterBar.style.display = '';
       if (tiktok) tiktok.classList.remove('active');
-      if (sidebar) sidebar.classList.remove('hidden');
       if (counter) counter.style.display = 'none';
       if (navHint) navHint.style.display = 'none';
       renderGrid();
     } else {
       if (grid) grid.style.display = 'none';
-      if (main) { main.style.display = 'none'; }
+      if (main) main.style.display = 'none';
+      if (hero) hero.style.display = 'none';
+      if (filterBar) filterBar.style.display = 'none';
       if (tiktok) tiktok.classList.add('active');
-      if (sidebar) sidebar.classList.add('hidden');
       if (counter) counter.style.display = '';
       if (navHint) navHint.style.display = '';
       initTiktokFeed();
@@ -482,6 +581,55 @@
 
   // ── Events ───────────────────────────────────────────
   function bindEvents() {
+    // Logo click reset
+    const logo = $('#nav-logo');
+    if (logo) {
+      logo.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        // Reset search
+        const searchInput = $('#search-input');
+        const searchClear = $('#search-clear');
+        if (searchInput) searchInput.value = '';
+        if (searchClear) searchClear.classList.remove('visible');
+        searchQuery = '';
+        
+        // Reset filters
+        activeFilter = null;
+        $$('.filter-pill').forEach(p => p.classList.remove('active'));
+        const filterAll = $('#filter-all');
+        if (filterAll) filterAll.classList.add('active');
+        
+        // Reset view
+        switchView('grid');
+        
+        // Apply
+        applyFilters();
+        
+        // Scroll to top smoothly
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+
+    // Scroll-based nav background
+    const nav = $('#nav');
+    window.addEventListener('scroll', () => {
+      if (nav) {
+        nav.classList.toggle('scrolled', window.scrollY > 80);
+      }
+    }, { passive: true });
+
+    // Hero scroll hint
+    const scrollHint = $('#hero-scroll-hint');
+    if (scrollHint) {
+      scrollHint.addEventListener('click', () => {
+        const filterBar = $('#filter-bar');
+        if (filterBar) {
+          filterBar.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    }
+
     // Search
     const searchInput = $('#search-input');
     const searchClear = $('#search-clear');
@@ -503,105 +651,68 @@
     });
 
     // View tabs
-    $$('.nav-tab').forEach(tab => {
-      tab.addEventListener('click', () => switchView(tab.dataset.view));
+    $$('.nav-link').forEach(link => {
+      link.addEventListener('click', () => switchView(link.dataset.view));
     });
-
-    // Sidebar toggle (mobile)
-    const sidebarToggle = $('#sidebar-toggle');
-    const sidebar = $('.sidebar');
-    if (sidebarToggle) {
-      sidebarToggle.addEventListener('click', () => {
-        sidebar.classList.toggle('visible');
-      });
-    }
 
     // Delegation click handler
     document.addEventListener('click', (e) => {
+
+      // Filter pills
+      const pill = e.target.closest('.filter-pill');
+      if (pill) {
+        const catId = pill.dataset.cat;
+        const subId = pill.dataset.sub;
+        const filterAll = pill.dataset.filter;
+
+        // Deselect all pills
+        $$('.filter-pill').forEach(p => p.classList.remove('active'));
+
+        if (filterAll === 'all') {
+          activeFilter = null;
+          pill.classList.add('active');
+        } else if (activeFilter && activeFilter.category === catId && 
+                   ((!subId && !activeFilter.subcategory) || activeFilter.subcategory === subId)) {
+          // Clicking same filter = deselect
+          activeFilter = null;
+          $('#filter-all').classList.add('active');
+        } else {
+          activeFilter = { category: catId, subcategory: subId || null };
+          pill.classList.add('active');
+        }
+
+        applyFilters();
+        return;
+      }
       
       // Post Card in Grid click -> opens Modal
       const postCard = e.target.closest('.post-card');
-      // But avoid triggering if clicking a badge or playing video directly
       if (postCard && !e.target.closest('.topic-badge') && !e.target.closest('a') && currentView === 'grid') {
         const postIdx = parseInt(postCard.dataset.postIndex);
         openPostModal(postIdx);
         return;
       }
 
-      // Sidebar: Topic category headers (expand/collapse + filter)
-      const catHeader = e.target.closest('.topic-category-header');
-      if (catHeader) {
-        const catDiv = catHeader.closest('.topic-category');
-        const catId = catHeader.dataset.cat;
-
-        // Toggle open
-        catDiv.classList.toggle('open');
-
-        // Set filter to full category
-        if (activeFilter && activeFilter.category === catId && !activeFilter.subcategory) {
-          activeFilter = null;
-          catHeader.classList.remove('active');
-        } else {
-          $$('.topic-category-header').forEach(h => h.classList.remove('active'));
-          $$('.topic-item').forEach(h => h.classList.remove('active'));
-
-          activeFilter = { category: catId, subcategory: null };
-          catHeader.classList.add('active');
-        }
-
-        updateClearButton();
-        applyFilters();
-        return;
-      }
-
-      // Sidebar: Subcategory click
-      const subItem = e.target.closest('.topic-item');
-      if (subItem) {
-        const catId = subItem.dataset.cat;
-        const subId = subItem.dataset.sub;
-
-        if (activeFilter && activeFilter.category === catId && activeFilter.subcategory === subId) {
-          activeFilter = null;
-          subItem.classList.remove('active');
-        } else {
-          $$('.topic-category-header').forEach(h => h.classList.remove('active'));
-          $$('.topic-item').forEach(h => h.classList.remove('active'));
-          activeFilter = { category: catId, subcategory: subId };
-          subItem.classList.add('active');
-        }
-
-        updateClearButton();
-        applyFilters();
-
-        if (window.innerWidth <= 1024) {
-          sidebar.classList.remove('visible');
-        }
-        return;
-      }
-
       // Topic badges inside posts
       const badge = e.target.closest('.topic-badge');
       if (badge) {
-        // If modal was open, close it since we are applying a filter
         closePostModal();
 
         const catId = badge.dataset.cat;
         const subId = badge.dataset.sub;
 
-        $$('.topic-category-header').forEach(h => h.classList.remove('active'));
-        $$('.topic-item').forEach(h => h.classList.remove('active'));
-
+        $$('.filter-pill').forEach(p => p.classList.remove('active'));
         activeFilter = { category: catId, subcategory: subId };
 
-        const sidebarItem = $(`.topic-item[data-cat="${catId}"][data-sub="${subId}"]`);
-        if (sidebarItem) {
-          sidebarItem.classList.add('active');
-          const catDiv = sidebarItem.closest('.topic-category');
-          if (catDiv) catDiv.classList.add('open');
-        }
+        // Highlight matching pill
+        const matchingPill = $(`.filter-pill[data-cat="${catId}"][data-sub="${subId}"]`);
+        if (matchingPill) matchingPill.classList.add('active');
 
-        updateClearButton();
         applyFilters();
+
+        // Scroll to filter bar
+        const filterBar = $('#filter-bar');
+        if (filterBar) filterBar.scrollIntoView({ behavior: 'smooth' });
         return;
       }
 
@@ -629,19 +740,14 @@
       // Lightbox nav
       if (e.target.closest('.lightbox-prev')) { lightboxPrev(); return; }
       if (e.target.closest('.lightbox-next')) { lightboxNext(); return; }
-    });
 
-    // Clear filter button
-    const clearBtn = $('#sidebar-clear');
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        activeFilter = null;
-        $$('.topic-category-header').forEach(h => h.classList.remove('active'));
-        $$('.topic-item').forEach(h => h.classList.remove('active'));
-        updateClearButton();
-        applyFilters();
-      });
-    }
+      // Spoiler reveal
+      const spoiler = e.target.closest('.spoiler');
+      if (spoiler) {
+        spoiler.classList.toggle('revealed');
+        return;
+      }
+    });
 
     // Keyboard
     document.addEventListener('keydown', (e) => {
@@ -687,19 +793,14 @@
     }
   }
 
-  function updateClearButton() {
-    const btn = $('#sidebar-clear');
-    if (btn) btn.classList.toggle('visible', !!activeFilter);
-  }
-
   // ── Helpers ──────────────────────────────────────────
   function formatDate(dateStr) {
     if (!dateStr) return '';
     try {
       const d = new Date(dateStr);
       if (isNaN(d)) return dateStr;
-      const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-                       'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+      const months = ['ЯНВАРЯ', 'ФЕВРАЛЯ', 'МАРТА', 'АПРЕЛЯ', 'МАЯ', 'ИЮНЯ',
+                       'ИЮЛЯ', 'АВГУСТА', 'СЕНТЯБРЯ', 'ОКТЯБРЯ', 'НОЯБРЯ', 'ДЕКАБРЯ'];
       return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
     } catch {
       return dateStr;
