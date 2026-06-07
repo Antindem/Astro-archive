@@ -376,6 +376,18 @@ def html_to_text(html_str):
     return text.strip()
 
 
+def clean_author(name):
+    """Normalize author names to merge aliases and strip timestamps."""
+    if not name:
+        return ""
+    # Normalize xxhezme variants
+    if name.lower().startswith("xxhezme"):
+        return "xxhezme"
+    # Remove trailing date/time (e.g. "  06.02.2025 13:33:52")
+    name = re.sub(r"\s+\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2}", "", name)
+    return name.strip()
+
+
 # ── Parse the big HTML file ───────────────────────────────────
 class TelegramParser(HTMLParser):
     def __init__(self):
@@ -560,7 +572,7 @@ class TelegramParser(HTMLParser):
         if self._in_from_name and tag == "div":
             self._in_from_name = False
             if self.current_post and not self._is_joined:
-                self.current_post["author"] = self._from_buffer.strip()
+                self.current_post["author"] = clean_author(self._from_buffer.strip())
             return
 
         if self._in_date and tag == "div":
