@@ -27,6 +27,11 @@ MERGE_GROUPS = [
     ["message1257591", "message1259097", "message1264328", "message1267783"],
     ["message1303150", "message1303165"],
     ["message1364138", "message1364141"],
+    # ── New merge groups from ChatExport_2026-06-07 ──
+    ["message1479696", "message1479895"],                                    # Спутники Юпитера + Сатурна
+    ["message1497327", "message1497345"],                                    # Экзопланеты часть 1 + 2
+    # Note: Apollo (message1507591+) and Solar flare (message1565766+) are already
+    # auto-merged by the parser since their continuations are 'joined' messages in HTML
 ]
 
 

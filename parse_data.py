@@ -188,6 +188,22 @@ def classify_post(text_lower, post_id=None):
         "message1453388": [{"category": "deep_space", "subcategory": "galaxies"}],
         "message1457205": [{"category": "deep_space", "subcategory": "nebulae"}, {"category": "deep_space", "subcategory": "stars"}, {"category": "space_exploration", "subcategory": "telescopes"}],
         "message1457964": [{"category": "space_exploration", "subcategory": "missions"}, {"category": "space_exploration", "subcategory": "astronauts"}],
+        # ── New posts from ChatExport_2026-06-07 ──
+        "message1470923": [{"category": "deep_space", "subcategory": "galaxies"}],
+        "message1479696": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message1489925": [{"category": "deep_space", "subcategory": "stars"}],
+        "message1492469": [{"category": "events", "subcategory": "events"}],
+        "message1497327": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1503180": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message1506276": [{"category": "deep_space", "subcategory": "galaxies"}],
+        "message1507591": [{"category": "space_exploration", "subcategory": "missions"}, {"category": "space_exploration", "subcategory": "astronauts"}],
+        "message1530023": [{"category": "solar_system", "subcategory": "planets"}],
+        "message1540694": [{"category": "events", "subcategory": "events"}],
+        "message1546488": [{"category": "deep_space", "subcategory": "nebulae"}],
+        "message1563567": [{"category": "events", "subcategory": "events"}],
+        "message1564795": [{"category": "deep_space", "subcategory": "nebulae"}, {"category": "deep_space", "subcategory": "stars"}],
+        "message1565766": [{"category": "solar_system", "subcategory": "sun"}],
+        "message1565907": [{"category": "solar_system", "subcategory": "comets_asteroids"}],
     }
 
     if post_id in OVERRIDES:
