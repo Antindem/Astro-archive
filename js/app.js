@@ -161,12 +161,14 @@
       const label = cat.label.replace(/^[^\s]+\s/, ''); // Remove emoji prefix
       html += `<button class="filter-pill" data-cat="${cat.id}">${label}</button>`;
 
-      // Add subcategory pills
-      cat.children.forEach(sub => {
-        const subCount = counts[`${cat.id}/${sub.id}`] || 0;
-        if (subCount === 0) return;
-        html += `<button class="filter-pill" data-cat="${cat.id}" data-sub="${sub.id}">${sub.label}</button>`;
-      });
+      // Add subcategory pills (only if category has multiple children)
+      if (cat.children.length > 1) {
+        cat.children.forEach(sub => {
+          const subCount = counts[`${cat.id}/${sub.id}`] || 0;
+          if (subCount === 0) return;
+          html += `<button class="filter-pill" data-cat="${cat.id}" data-sub="${sub.id}">${sub.label}</button>`;
+        });
+      }
     });
 
     container.innerHTML = html;
@@ -705,7 +707,10 @@
         activeFilter = { category: catId, subcategory: subId };
 
         // Highlight matching pill
-        const matchingPill = $(`.filter-pill[data-cat="${catId}"][data-sub="${subId}"]`);
+        let matchingPill = $(`.filter-pill[data-cat="${catId}"][data-sub="${subId}"]`);
+        if (!matchingPill) {
+          matchingPill = $(`.filter-pill[data-cat="${catId}"]:not([data-sub])`);
+        }
         if (matchingPill) matchingPill.classList.add('active');
 
         applyFilters();
