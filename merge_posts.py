@@ -75,7 +75,7 @@ def merge_posts(posts_in_group):
     for p in posts_in_group:
         all_images.extend(p.get("images", []))
     main["images"] = all_images
-    
+        
     # Merge videos
     all_videos = []
     for p in posts_in_group:

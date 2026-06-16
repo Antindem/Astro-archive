@@ -83,6 +83,9 @@
       applyFilters();
       bindEvents();
       hideLoading();
+
+      // Deep-link: open post from URL hash (#post=messageId)
+      checkHashAndOpenPost();
     } catch (err) {
       console.error('Failed to load data', err);
       const main = $('#main-content');
@@ -303,6 +306,9 @@
               <div class="card-author">${escHtml(post.author)}</div>
               <div class="card-date">${dateStr}</div>
             </div>
+            <button class="share-btn" data-post-id="${post.id}" aria-label="Поделиться" title="Скопировать ссылку">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            </button>
           </div>
           ${topicBadges ? `<div class="card-topics">${topicBadges}</div>` : ''}
           <div class="card-text">${post.html || ''}</div>
@@ -407,6 +413,9 @@
                   <div class="tiktok-author">${escHtml(post.author)}</div>
                   <div class="tiktok-date">${dateStr}</div>
                 </div>
+                <button class="share-btn" data-post-id="${post.id}" aria-label="Поделиться" title="Скопировать ссылку">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                </button>
               </div>
               <div class="tiktok-text">${post.html || ''}</div>
               ${reactionsHtml}
@@ -474,6 +483,10 @@
             <div class="modal-author">${escHtml(post.author)}</div>
             <div class="modal-date">${dateStr}</div>
           </div>
+          <button class="share-btn share-btn--modal" data-post-id="${post.id}" aria-label="Поделиться" title="Скопировать ссылку">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            <span>ПОДЕЛИТЬСЯ</span>
+          </button>
         </div>
         ${topicBadges ? `<div class="modal-topics">${topicBadges}</div>` : ''}
         <div class="modal-text">${post.html || ''}</div>
@@ -483,6 +496,9 @@
 
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
+
+    // Update URL hash for deep-linking
+    history.replaceState(null, '', `#post=${post.id}`);
   }
 
   function closePostModal() {
@@ -491,6 +507,10 @@
       modal.classList.remove('active');
       $('#post-modal-content').innerHTML = '';
       document.body.style.overflow = '';
+    }
+    // Clear the hash without triggering hashchange scroll
+    if (location.hash.startsWith('#post=')) {
+      history.replaceState(null, '', location.pathname + location.search);
     }
   }
 
@@ -687,6 +707,15 @@
         return;
       }
       
+      // Share button click
+      const shareBtn = e.target.closest('.share-btn');
+      if (shareBtn) {
+        e.stopPropagation();
+        const postId = shareBtn.dataset.postId;
+        copyPostLink(postId);
+        return;
+      }
+
       // Post Card in Grid click -> opens Modal
       const postCard = e.target.closest('.post-card');
       if (postCard && !e.target.closest('.topic-badge') && !e.target.closest('a') && currentView === 'grid') {
@@ -831,6 +860,78 @@
       timer = setTimeout(() => fn.apply(this, args), ms);
     };
   }
+
+  // ── Deep-linking & Share ─────────────────────────────
+  function getPostUrl(postId) {
+    const base = location.origin + location.pathname;
+    return `${base}#post=${postId}`;
+  }
+
+  function copyPostLink(postId) {
+    const url = getPostUrl(postId);
+    navigator.clipboard.writeText(url).then(() => {
+      showToast('ССЫЛКА СКОПИРОВАНА');
+    }).catch(() => {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('ССЫЛКА СКОПИРОВАНА');
+    });
+  }
+
+  function showToast(message) {
+    // Remove existing toast
+    const existing = $('#share-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'share-toast';
+    toast.className = 'share-toast';
+    toast.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span>${message}</span>
+    `;
+    document.body.appendChild(toast);
+
+    // Trigger animation
+    requestAnimationFrame(() => {
+      toast.classList.add('visible');
+    });
+
+    // Auto-dismiss
+    setTimeout(() => {
+      toast.classList.remove('visible');
+      setTimeout(() => toast.remove(), 300);
+    }, 2500);
+  }
+
+  function checkHashAndOpenPost() {
+    const hash = location.hash;
+    if (!hash.startsWith('#post=')) return;
+
+    const postId = hash.slice(6); // Remove '#post='
+    const postIndex = allPosts.findIndex(p => p.id === postId);
+    if (postIndex !== -1) {
+      openPostModal(postIndex);
+    }
+  }
+
+  // Listen for hash changes (e.g., user navigates with browser back/forward)
+  window.addEventListener('hashchange', () => {
+    if (location.hash.startsWith('#post=')) {
+      checkHashAndOpenPost();
+    } else {
+      closePostModal();
+    }
+  });
 
   // ── Boot ─────────────────────────────────────────────
   if (document.readyState === 'loading') {
