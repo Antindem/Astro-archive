@@ -22,37 +22,58 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from parse_data import TelegramParser, classify_post, html_to_text, build_taxonomy_tree
 
 # ── Configuration ──
-SCRIPT_DIR = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).parent.resolve()
 POSTS_JSON = SCRIPT_DIR / "posts.json"
-
-# New export directory
-NEW_EXPORT_DIR = Path(os.path.expanduser(
-    "~/Downloads/Telegram Desktop/ChatExport_2026-06-07 (1)"
-))
-NEW_HTML = NEW_EXPORT_DIR / "messages.html"
-
-# Media source in new export
-NEW_MEDIA_BASE = NEW_EXPORT_DIR / "chats" / "chat_562952438021324" / "topic_1176"
-
-# Media destination in project
 DEST_MEDIA_BASE = SCRIPT_DIR / "chats" / "chat_562952438021324" / "topic_1176"
 
 
-def copy_media_files():
-    """Copy all media (photos, videos) from new export to project directory."""
+def resolve_export_dir():
+    """Resolve export directory from CLI argument or search local dirs."""
+    if len(sys.argv) > 1:
+        custom_dir = Path(sys.argv[1]).resolve()
+        if custom_dir.exists():
+            return custom_dir
+        print(f"❌ Specified export directory does not exist: {custom_dir}")
+        sys.exit(1)
+
+    # Search in script directory first
+    local_exports = sorted([d for d in SCRIPT_DIR.glob("ChatExport_*") if d.is_dir()])
+    if local_exports:
+        return local_exports[-1]
+
+    # Search in Downloads
+    dl_dir = Path(os.path.expanduser("~/Downloads/Telegram Desktop"))
+    if dl_dir.exists():
+        dl_exports = sorted([d for d in dl_dir.glob("ChatExport_*") if d.is_dir()])
+        if dl_exports:
+            return dl_exports[-1]
+
+    print("❌ No ChatExport directory found.")
+    sys.exit(1)
+
+
+def find_media_base(export_dir):
+    """Find topic directory containing photos/video_files."""
+    candidates = list(export_dir.glob("chats/*/topic_*"))
+    if candidates:
+        return candidates[0]
+    return export_dir / "chats" / "chat_562952438021324" / "topic_1176"
+
+
+def copy_media_files(media_base):
+    """Copy all media (photos, videos, stickers) from export to project directory."""
     copied = 0
     skipped = 0
-    
+
     for subdir in ["photos", "video_files", "stickers"]:
-        src_dir = NEW_MEDIA_BASE / subdir
+        src_dir = media_base / subdir
         dst_dir = DEST_MEDIA_BASE / subdir
-        
+
         if not src_dir.exists():
-            print(f"  ⚠️  Source directory not found: {src_dir}")
             continue
-            
+
         dst_dir.mkdir(parents=True, exist_ok=True)
-        
+
         for f in src_dir.iterdir():
             if f.is_file():
                 dst_file = dst_dir / f.name
@@ -61,21 +82,20 @@ def copy_media_files():
                 else:
                     shutil.copy2(f, dst_file)
                     copied += 1
-    
+
     print(f"  📁 Media: {copied} copied, {skipped} already existed")
     return copied
 
 
+def normalize_path(p):
+    """Ensure path starts with chats/ and uses the correct structure."""
+    if p.startswith("chats/"):
+        return p
+    return p
+
+
 def fix_media_paths(posts):
-    """
-    Fix media paths in posts: the parser outputs paths relative to the HTML file location.
-    We need them relative to the project root (same as existing posts).
-    
-    New export paths look like: chats/chat_562952438021324/topic_1176/photos/...
-    Existing project paths look like: chats/chat_562952438021324/topic_1176/photos/...
-    
-    They should be the same structure, but let's make sure.
-    """
+    """Fix media paths in posts to ensure they are relative to project root."""
     for post in posts:
         for img in post.get("images", []):
             if "full" in img:
@@ -89,32 +109,21 @@ def fix_media_paths(posts):
                 vid["thumb"] = normalize_path(vid["thumb"])
 
 
-def normalize_path(p):
-    """Ensure path starts with chats/ and uses the correct structure."""
-    # Paths from the parser are already relative to the HTML file
-    # They should look like: chats/chat_562952438021324/topic_1176/photos/xxx
-    if p.startswith("chats/"):
-        return p
-    return p
-
-
-def parse_new_html():
-    """Parse the new messages.html file."""
-    print(f"📖 Reading {NEW_HTML}...")
-    with open(NEW_HTML, "r", encoding="utf-8") as f:
+def parse_export_html(html_file):
+    """Parse messages.html using TelegramParser."""
+    print(f"📖 Reading {html_file}...")
+    with open(html_file, "r", encoding="utf-8") as f:
         html_content = f.read()
-    
+
     print("🔍 Parsing messages...")
     parser = TelegramParser()
     parser.feed(html_content)
     parser.finalize()
-    
+
     posts = parser.posts
-    print(f"  📊 Extracted {len(posts)} posts from new export")
-    
-    # Fix media paths
+    print(f"  📊 Extracted {len(posts)} posts from export")
+
     fix_media_paths(posts)
-    
     return posts
 
 
@@ -123,11 +132,11 @@ def merge_into_existing(new_posts):
     print(f"\n📂 Loading existing {POSTS_JSON}...")
     with open(POSTS_JSON, "r", encoding="utf-8") as f:
         data = json.load(f)
-    
-    existing_posts = data["posts"]
+
+    existing_posts = data.get("posts", [])
     existing_ids = {p["id"] for p in existing_posts}
     print(f"  📊 Existing posts: {len(existing_posts)}")
-    
+
     # Filter out duplicates
     added = []
     for post in new_posts:
@@ -136,20 +145,18 @@ def merge_into_existing(new_posts):
         else:
             added.append(post)
             existing_ids.add(post["id"])
-    
+
     print(f"\n  ✅ New posts to add: {len(added)}")
-    
-    # Print summary of new posts
+
     for p in added:
         topics_str = ", ".join(t["subcategory"] for t in p.get("topics", []))
         imgs = len(p.get("images", []))
         vids = len(p.get("videos", []))
         print(f"    📌 {p['id']} | {p['author'][:20]:20s} | {p['date'][:10]} | imgs:{imgs} vids:{vids} | [{topics_str}]")
         print(f"       {p['text'][:80]}...")
-    
-    # Add new posts and sort by date
+
     all_posts = existing_posts + added
-    
+
     def sort_key(post):
         iso = post.get("dateISO", "")
         if iso:
@@ -158,15 +165,15 @@ def merge_into_existing(new_posts):
             except:
                 pass
         return datetime.min
-    
+
     all_posts.sort(key=sort_key)
-    
+
     data["posts"] = all_posts
-    
-    # Write back
+    data["taxonomy"] = build_taxonomy_tree()
+
     with open(POSTS_JSON, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    
+
     print(f"\n📊 Total posts after merge: {len(all_posts)}")
     print(f"✅ Written to {POSTS_JSON}")
     return len(added)
@@ -176,22 +183,31 @@ def main():
     print("=" * 60)
     print("  Астро Архив — Добавление новых постов")
     print("=" * 60)
-    
+
+    export_dir = resolve_export_dir()
+    print(f"📂 Selected export directory: {export_dir}")
+
+    html_file = export_dir / "messages.html"
+    if not html_file.exists():
+        print(f"❌ messages.html not found in {export_dir}")
+        sys.exit(1)
+
+    media_base = find_media_base(export_dir)
+
     # 1. Copy media files
     print("\n📁 Step 1: Copying media files...")
-    copy_media_files()
-    
+    copy_media_files(media_base)
+
     # 2. Parse new HTML
-    print("\n📖 Step 2: Parsing new messages...")
-    new_posts = parse_new_html()
-    
-    # 3. Merge into existing
+    print("\n📖 Step 2: Parsing export messages...")
+    new_posts = parse_export_html(html_file)
+
+    # 3. Merge into existing posts.json
     print("\n🔀 Step 3: Merging into existing posts.json...")
     added = merge_into_existing(new_posts)
-    
+
     print(f"\n{'=' * 60}")
     print(f"  Done! Added {added} new posts.")
-    print(f"  Next step: run merge_posts.py to merge continuation posts.")
     print(f"{'=' * 60}")
 
 

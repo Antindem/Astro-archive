@@ -204,6 +204,18 @@ def classify_post(text_lower, post_id=None):
         "message1564795": [{"category": "deep_space", "subcategory": "nebulae"}, {"category": "deep_space", "subcategory": "stars"}],
         "message1565766": [{"category": "solar_system", "subcategory": "sun"}],
         "message1565907": [{"category": "solar_system", "subcategory": "comets_asteroids"}],
+        # ── New posts from ChatExport_2026-09-16 ──
+        "message1578851": [{"category": "solar_system", "subcategory": "moons"}, {"category": "solar_system", "subcategory": "planets"}, {"category": "space_exploration", "subcategory": "missions"}],
+        "message1590990": [{"category": "solar_system", "subcategory": "planets"}, {"category": "solar_system", "subcategory": "moons"}, {"category": "space_exploration", "subcategory": "missions"}],
+        "message1597352": [{"category": "deep_space", "subcategory": "galaxies"}, {"category": "space_exploration", "subcategory": "telescopes"}],
+        "message1598264": [{"category": "events", "subcategory": "events"}],
+        "message1626071": [{"category": "deep_space", "subcategory": "galaxies"}, {"category": "space_exploration", "subcategory": "telescopes"}],
+        "message1674651": [{"category": "space_exploration", "subcategory": "astronauts"}, {"category": "space_exploration", "subcategory": "missions"}, {"category": "solar_system", "subcategory": "moons"}],
+        "message1693151": [{"category": "events", "subcategory": "events"}],
+        "message1698139": [{"category": "solar_system", "subcategory": "moons"}],
+        "message1699494": [{"category": "deep_space", "subcategory": "galaxies"}, {"category": "deep_space", "subcategory": "stars"}],
+        "message1739075": [{"category": "solar_system", "subcategory": "sun"}, {"category": "events", "subcategory": "events"}],
+        "message1751364": [{"category": "events", "subcategory": "events"}],
     }
 
     if post_id in OVERRIDES:
